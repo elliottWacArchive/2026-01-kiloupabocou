@@ -1,0 +1,52 @@
+services:
+    mysql:
+        image: mysql:8.3
+        restart: unless-stopped
+        environment:
+            MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-changeme_root}
+            MYSQL_DATABASE: ${MYSQL_DATABASE:-symfony_db}
+            MYSQL_USER: ${MYSQL_USER:-symfony_user}
+            MYSQL_PASSWORD: ${MYSQL_PASSWORD:-symfony_pass}
+        ports:
+            - "3306:3306"
+        command: --default-authentication-plugin=mysql_native_password
+        volumes:
+            - mysql_data:/var/lib/mysql
+
+    php:
+        build:
+            context: .
+            dockerfile: docker/php/Dockerfile
+        restart: unless-stopped
+        depends_on:
+            - mysql
+        environment:
+            APP_ENV: ${APP_ENV:-dev}
+            APP_DEBUG: ${APP_DEBUG:-1}
+            DATABASE_URL: ${DATABASE_URL:-mysql://symfony_user:symfony_pass@mysql:3306/symfony_db?serverVersion=8.0}
+        working_dir: /var/www/symfony
+        volumes:
+            - ./www:/var/www/symfony
+            - symfony_var:/var/www/symfony/var
+            - symfony_php_logs:/usr/local/var/log
+        ports:
+            - "9000:9000"
+        expose:
+            - "9000"
+
+    nginx:
+        image: nginx:1.25-alpine
+        restart: unless-stopped
+        depends_on:
+            - php
+        ports:
+            - "80:80"
+        volumes:
+            - ./www:/var/www/symfony:ro
+            - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+            - ./docker/nginx/logs:/var/log/nginx
+
+volumes:
+    mysql_data:
+    symfony_var:
+    symfony_php_logs:
