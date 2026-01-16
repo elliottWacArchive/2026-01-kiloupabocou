@@ -46,7 +46,57 @@ services:
             - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
             - ./docker/nginx/logs:/var/log/nginx
 
+    elasticsearch:
+        image: elastic/elasticsearch:9.2.4
+        restart: unless-stopped
+        environment:
+            - discovery.type=single-node # config es pour fonctionner comme un noeud unique sans clustering
+            - xpack.security.enabled=false # desac xpack security
+            - ES_JAVA_OPTS=-Xms1g -Xmx1g # config la memoire jvm a 1go
+        ports:
+            - "9200:9200"
+        volumes:
+            - es_data:/usr/share/elasticsearch/data
+
+    logstash:
+        image: elastic/logstash:9.2.4
+        restart: unless-stopped
+        depends_on:
+            - elasticsearch
+        ports:
+            - "5044:5044"
+            - "9600:9600"
+        environment:
+            - LS_JAVA_OPTS=-Xms512m -Xmx512m
+        volumes:
+            - ./docker/logstash/pipeline:/usr/share/logstash/pipeline:ro
+
+    kibana:
+        image: elastic/kibana:9.2.4
+        restart: unless-stopped
+        depends_on:
+            - elasticsearch
+        environment:
+            - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+            - XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY=${KIBANA_ENCRYPTION_KEY}
+        ports:
+            - "5601:5601"
+
+    filebeat:
+        image: elastic/filebeat:9.2.4
+        restart: unless-stopped
+        depends_on:
+            - logstash
+        user: root
+        command: ["filebeat", "-e", "--strict.perms=false"] # filebeat en mode verbose et desac les verif de perms strictes (filebeat fonctionne mm sans les perms restrictives)
+        volumes:
+            - ./docker/nginx/logs:/var/log/nginx:ro
+            - ./docker/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+            - filebeat_data:/usr/share/filebeat/data
+
 volumes:
     mysql_data:
     symfony_var:
     symfony_php_logs:
+    es_data:
+    filebeat_data:
