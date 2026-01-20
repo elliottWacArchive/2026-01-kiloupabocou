@@ -94,6 +94,22 @@ services:
             - ./docker/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
             - filebeat_data:/usr/share/filebeat/data
 
+    mediawiki:
+        image: mediawiki:stable
+        restart: unless-stopped
+        environment:
+            MEDIAWIKI_DB_TYPE: mysql
+            MEDIAWIKI_DB_HOST: mysql
+            MEDIAWIKI_DB_NAME: ${MEDIAWIKI_DB_NAME:-mediawiki_db}
+            MEDIAWIKI_DB_USER: ${MEDIAWIKI_DB_USER:-mediawiki_user}
+            MEDIAWIKI_DB_PASSWORD: ${MEDIAWIKI_DB_PASSWORD:-mediawiki_pass}
+        volumes:
+            - ./docker/mediawiki/LocalSettings.php:/var/www/html/LocalSettings.php:ro
+        ports:
+            - "8080:80"
+        depends_on:
+            - mysql
+
 volumes:
     mysql_data:
     symfony_var:
